@@ -131,6 +131,8 @@ class NavSatTransform
     //! This is needed for obtaining transforms from the robot's body frame to the frames of sensors (IMU and GPS)
     //!
     std::string base_link_frame_id_;
+    /// if set via parameter server, the base_link_frame_id_ will always be set to this value
+    std::string base_link_frame_id_user_defined_;
 
     //! @brief Whether or not we broadcast the UTM transform
     //!
@@ -187,6 +189,9 @@ class NavSatTransform
     //! @brief Parameter that specifies the magnetic declination for the robot's environment.
     //!
     double magnetic_declination_;
+
+    //! @brief The latest good odometry message
+    nav_msgs::Odometry latest_odom_;
 
     //! @brief Timestamp of the latest good odometry message
     //!
@@ -262,6 +267,8 @@ class NavSatTransform
     //! This will just match whatever your odometry message has
     //!
     std::string world_frame_id_;
+    /// if set via parameter server, the world_frame_id_ will always be set to this value
+    std::string world_frame_id_user_defined_;
 
     //! @brief IMU's yaw offset
     //!

@@ -100,6 +100,17 @@ namespace RobotLocalization
     nh_priv.param("transform_timeout", transform_timeout, 0.0);
     transform_timeout_.fromSec(transform_timeout);
 
+    nh_priv.param("base_link_frame", base_link_frame_id_user_defined_, std::string(""));
+    nh_priv.param("world_frame", world_frame_id_user_defined_, std::string(""));
+
+    if(!base_link_frame_id_user_defined_.empty()){
+      base_link_frame_id_ = base_link_frame_id_user_defined_;
+    }
+
+    if(!world_frame_id_user_defined_.empty()){
+      world_frame_id_ = world_frame_id_user_defined_;
+    }
+
     // Subscribe to the messages and services we need
     ros::ServiceServer datum_srv = nh.advertiseService("datum", &NavSatTransform::datumCallback, this);
 
@@ -549,8 +560,12 @@ namespace RobotLocalization
 
   void NavSatTransform::odomCallback(const nav_msgs::OdometryConstPtr& msg)
   {
-    world_frame_id_ = msg->header.frame_id;
-    base_link_frame_id_ = msg->child_frame_id;
+    if(world_frame_id_user_defined_.empty()){
+      world_frame_id_ = msg->header.frame_id;
+    }
+    if(base_link_frame_id_user_defined_.empty()){
+      base_link_frame_id_ = msg->child_frame_id;
+    }
 
     if (!transform_good_ && !use_manual_datum_)
     {
@@ -567,6 +582,7 @@ namespace RobotLocalization
       }
     }
 
+    latest_odom_ = *msg;
     odom_update_time_ = msg->header.stamp;
     odom_updated_ = true;
   }
@@ -644,6 +660,7 @@ namespace RobotLocalization
 
       // Set header information stamp because we would like to know the robot's position at that timestamp
       gps_odom.header.frame_id = world_frame_id_;
+      gps_odom.child_frame_id = base_link_frame_id_;
       gps_odom.header.stamp = gps_update_time_;
 
       // Want the pose of the vehicle origin, not the GPS
@@ -680,6 +697,20 @@ namespace RobotLocalization
           gps_odom.pose.covariance[POSE_SIZE * i + j] = latest_utm_covariance_(i, j);
         }
       }
+
+      // set orientation from latest odometry
+      gps_odom.pose.pose.orientation = latest_odom_.pose.pose.orientation;
+      // Copy bottom right (orientation) covariance from Imu
+      for(int i = 0; i < 3; ++i) {
+        for(int j = 0; j < 3; ++j) {
+	  int k = i + 3;
+	  int l = j + 3;
+	  gps_odom.pose.covariance[k * 6 + l] = latest_odom_.pose.covariance[i * 3 + j];
+        }
+      }
+
+      // set twist from latest odometry
+      gps_odom.twist = latest_odom_.twist;
 
       // Mark this GPS as used
       gps_updated_ = false;
